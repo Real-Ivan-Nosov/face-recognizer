@@ -2,7 +2,9 @@ import React from 'react';
 import './App.css';
 import Clarifai from 'clarifai';
 import Navigation from './components/navigation/Navigation';
+import SignIn from './components/SignIn/SignIn';
 import Logo from './components/Logo/Logo';
+import Register from './components/Register/Register';
 import ImageLinkForm from './components/ImageLinkForm/ImageLinkForm';
 import Rank from './components/Rank/Rank';
 import FaceRecognition from './components/FaceRecognition/FaceRecognition';
@@ -98,29 +100,54 @@ class App extends React.Component {
     this.state = {
       input: '',
       imgUrl: '',
+      box: {},
+      route: 'singIn',
+      isSignedIn: false,
     }
   }
 
+  calculateFaceLocation = (data) => {
+    const clarifaiFace = data.outputs[0].data.regions[0].region_info.bounding_box;
+    const image = document.getElementById('inputImage');
+    const width = Number(image.width);
+    const height = Number(image.height);
+    return {
+      leftCol: clarifaiFace.left_col * width,
+      topRow: clarifaiFace.top_row * height,
+      rightCol: width - clarifaiFace.right_col * width,
+      bottomRow: height - clarifaiFace.bottom_row * height,
+    }
+  }
+
+  displayFaceBox = (box) => {
+    console.log(box);
+    this.setState({ box: box });
+  }
+
   onClick = () => {
-    this.setState({imgUrl: this.state.input});
+    this.setState({ imgUrl: this.state.input });
     app.models.predict(
       Clarifai.FACE_DETECT_MODEL,
-      this.state.input) 
-      .then(
-        function (response) {
-          console.log(response.outputs[0].data.regions[0].region_info.bounding_box)
-        },
-        function (err) {
-
-        }
-      );
+      this.state.input)
+      .then(response => this.displayFaceBox(this.calculateFaceLocation(response)))
+      .catch(err => console.log(err))
   }
 
   onInputChange = (evt) => {
-    this.setState({input: evt.target.value})
+    this.setState({ input: evt.target.value })
+  }
+
+  onRouteChange = (route) => {
+    if (route === 'singOut') {
+      this.setState({isSignedIn: false})
+    } else if (route === 'home') {
+      this.setState({isSignedIn: true})
+    }
+    this.setState({route: route})
   }
 
   render() {
+    const { isSignedIn, imgUrl, route, box} = this.state;
     return (
       <div className="App">
         <Particles
@@ -130,13 +157,20 @@ class App extends React.Component {
           id="tsparticles"
           options={particlesOptions}
         />
-        <Navigation />
-        <Logo />
-        <Rank />
-        <ImageLinkForm
-          onInputChange={this.onInputChange}
-          onClick={this.onClick} />
-        <FaceRecognition imgUrl={this.state.imgUrl}/>
+        <Navigation onRouteChange={this.onRouteChange}/>
+        {route === 'home'
+          ? <React.Fragment>
+            <Logo />
+            <Rank />
+            <ImageLinkForm
+              onInputChange={this.onInputChange}
+              onClick={this.onClick} />
+            <FaceRecognition box={box} imgUrl={imgUrl} />
+            </React.Fragment>  
+          : route === 'singIn'
+            ? <SignIn onRouteChange={this.onRouteChange} />
+            : <Register onRouteChange={this.onRouteChange}/>
+        }
       </div>
     );
   }
