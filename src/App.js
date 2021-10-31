@@ -103,7 +103,26 @@ class App extends React.Component {
       box: {},
       route: 'singIn',
       isSignedIn: false,
+      user: {
+        email: '',
+        id: '',
+        name: '',
+        entires: 0,
+        joined: ''
+      }
     }
+  }
+
+  loadUser = (data) => {
+    this.setState({
+      user: {
+        email: data.email,
+        id: data.id,
+        name: data.name,
+        entires: data.entires,
+        joined: data.joined
+      }
+    })
   }
 
   calculateFaceLocation = (data) => {
@@ -119,6 +138,8 @@ class App extends React.Component {
     }
   }
 
+
+
   displayFaceBox = (box) => {
     console.log(box);
     this.setState({ box: box });
@@ -129,7 +150,22 @@ class App extends React.Component {
     app.models.predict(
       Clarifai.FACE_DETECT_MODEL,
       this.state.input)
-      .then(response => this.displayFaceBox(this.calculateFaceLocation(response)))
+      .then(response => {
+        if (response) {
+          fetch('http://localhost:5555/image', {
+            method: 'put',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: this.state.user.id
+            })
+          })
+          .then(response => response.json())
+          .then(count => {
+            this.setState(Object.assign(this.state.user, { entires: count}))
+          })
+        }
+        this.displayFaceBox(this.calculateFaceLocation(response))
+      })
       .catch(err => console.log(err))
   }
 
@@ -139,15 +175,15 @@ class App extends React.Component {
 
   onRouteChange = (route) => {
     if (route === 'singOut') {
-      this.setState({isSignedIn: false})
+      this.setState({ isSignedIn: false })
     } else if (route === 'home') {
-      this.setState({isSignedIn: true})
+      this.setState({ isSignedIn: true })
     }
-    this.setState({route: route})
+    this.setState({ route: route })
   }
 
   render() {
-    const { isSignedIn, imgUrl, route, box} = this.state;
+    const { isSignedIn, imgUrl, route, box } = this.state;
     return (
       <div className="App">
         <Particles
@@ -157,19 +193,19 @@ class App extends React.Component {
           id="tsparticles"
           options={particlesOptions}
         />
-        <Navigation onRouteChange={this.onRouteChange}/>
+        <Navigation onRouteChange={this.onRouteChange} />
         {route === 'home'
           ? <React.Fragment>
             <Logo />
-            <Rank />
+            <Rank name={this.state.user.name} entires={this.state.user.entires} />
             <ImageLinkForm
               onInputChange={this.onInputChange}
               onClick={this.onClick} />
             <FaceRecognition box={box} imgUrl={imgUrl} />
-            </React.Fragment>  
+          </React.Fragment>
           : route === 'singIn'
-            ? <SignIn onRouteChange={this.onRouteChange} />
-            : <Register onRouteChange={this.onRouteChange}/>
+            ? <SignIn loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
+            : <Register loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
         }
       </div>
     );
